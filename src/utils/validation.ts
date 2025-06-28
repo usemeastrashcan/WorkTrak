@@ -16,3 +16,7 @@ export const ExpenseSchema = z.object({
   description: z.string().optional(),
   category: z.string().optional(),
 });
+
+export const UpdateExpenseSchema = ExpenseSchema.extend({
+  id: z.number().positive()
+});

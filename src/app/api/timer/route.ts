@@ -5,12 +5,29 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    console.log('Received Data:', body);
+
     const validatedData = TimerSchema.parse(body);
 
-    const { data, error } = await supabase
-      .from('work_entries')
-      .insert([validatedData])
-      .select();
+    console.log('Validated Data:', validatedData);
+
+const { company, startTime, endTime, duration, isSubmitted } = validatedData;
+
+const { data, error } = await supabase
+  .from('work_entries')
+  .insert([
+    {
+      company,
+      start_time: startTime,
+      end_time: endTime,
+      duration,
+      is_submitted: isSubmitted, // ✅ converted to snake_case
+    },
+  ])
+  .select();
+
+    console.log('Database Response:', data, error);
 
     if (error) {
       throw new Error(error.message);

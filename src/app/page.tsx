@@ -26,7 +26,7 @@ export default function TimeTrackingPage() {
   const [timerState, setTimerState] = useState<TimerState>("ready")
   const [seconds, setSeconds] = useState(0)
   const [startTime, setStartTime] = useState<Date | null>(null)
-  const [todayTotal, setTodayTotal] = useState(13512) // 03:45:12 in seconds
+  const [todayTotal, setTodayTotal] = useState(0) // 03:45:12 in seconds
   const [isSubmitting, setIsSubmitting] = useState(false)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -88,19 +88,23 @@ export default function TimeTrackingPage() {
 
     setIsSubmitting(true)
 
+
     try {
-      const response = await fetch("/api/timer", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          company: selectedCompany,
-          startTime: startTime.toISOString(),
-          duration: seconds / 3600, // Convert to hours
-          is_submitted: true,
-        }),
-      })
+    const endTime = new Date(startTime.getTime() + seconds * 1000);
+
+    const response = await fetch("/api/timer", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        company: selectedCompany,
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),         // ✅ include this
+        duration: seconds / 3600,
+        isSubmitted: true,
+      }),
+    });
 
       const result = await response.json()
 
