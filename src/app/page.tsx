@@ -1,103 +1,302 @@
-import Image from "next/image";
+"use client"
 
-export default function Home() {
+import { useState, useEffect, useRef } from "react"
+import { Button } from "@/components/ui/button"
+import { Clock, History, FileText, DollarSign, BarChart3, Settings, Play, Pause, Square } from "lucide-react"
+import Link from "next/link"
+import "@/app/globals.css" 
+
+type Company = "VedaAI" | "CK" | "BrandSurge"
+type TimerState = "ready" | "running" | "paused"
+
+interface CompanyOption {
+  name: Company
+  type: string
+  color: string
+}
+
+const companies: CompanyOption[] = [
+  { name: "VedaAI", type: "Contract-based", color: "bg-blue-600" },
+  { name: "CK", type: "Hourly", color: "bg-green-600" },
+  { name: "BrandSurge", type: "Monthly", color: "bg-purple-600" },
+]
+
+export default function TimeTrackingPage() {
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null)
+  const [timerState, setTimerState] = useState<TimerState>("ready")
+  const [seconds, setSeconds] = useState(0)
+  const [startTime, setStartTime] = useState<Date | null>(null)
+  const [todayTotal, setTodayTotal] = useState(13512) // 03:45:12 in seconds
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const intervalRef = useRef<NodeJS.Timeout | null>(null)
+
+  useEffect(() => {
+    if (timerState === "running") {
+      intervalRef.current = setInterval(() => {
+        setSeconds((prev) => prev + 1)
+      }, 1000)
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+      }
+    }
+  }, [timerState])
+
+  const formatTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const secs = totalSeconds % 60
+    return {
+      hours: hours.toString().padStart(2, "0"),
+      minutes: minutes.toString().padStart(2, "0"),
+      seconds: secs.toString().padStart(2, "0"),
+    }
+  }
+
+  const formatTodayTime = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600)
+    const minutes = Math.floor((totalSeconds % 3600) / 60)
+    const secs = totalSeconds % 60
+    return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`
+  }
+
+  const handleClockIn = () => {
+    if (!selectedCompany) return
+
+    setStartTime(new Date())
+    setTimerState("running")
+    setSeconds(0)
+  }
+
+  const handlePause = () => {
+    setTimerState("paused")
+  }
+
+  const handleResume = () => {
+    setTimerState("running")
+  }
+
+  const handleSubmit = async () => {
+    if (!selectedCompany || !startTime) return
+
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch("/api/timer", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          company: selectedCompany,
+          startTime: startTime.toISOString(),
+          duration: seconds / 3600, // Convert to hours
+          is_submitted: true,
+        }),
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        // Reset timer
+        setTimerState("ready")
+        setSeconds(0)
+        setStartTime(null)
+        setSelectedCompany(null)
+        // Update today's total
+        setTodayTotal((prev) => prev + seconds)
+      } else {
+        console.error("Failed to submit:", result.error)
+        alert("Failed to submit time entry. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error submitting:", error)
+      alert("Error submitting time entry. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const currentTime = formatTime(seconds)
+  const isClockInDisabled = !selectedCompany || timerState !== "ready"
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+    <div className="min-h-screen bg-gray-900 text-white flex flex-col">
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+        {/* Company Selection */}
+        {timerState === "ready" && (
+          <div className="mb-8">
+            <h2 className="text-xl font-semibold mb-4 text-center text-gray-300">Select Company</h2>
+            <div className="flex gap-4 flex-wrap justify-center">
+              {companies.map((company) => (
+                <button
+                  key={company.name}
+                  onClick={() => setSelectedCompany(company.name)}
+                  className={`px-6 py-3 rounded-lg border-2 transition-all ${
+                    selectedCompany === company.name
+                      ? "border-yellow-500 bg-yellow-500/20 text-yellow-400"
+                      : "border-gray-600 bg-gray-800 text-gray-300 hover:border-gray-500"
+                  }`}
+                >
+                  <div className="text-center">
+                    <div className="font-semibold">{company.name}</div>
+                    <div className="text-sm opacity-75">{company.type}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        {/* Status */}
+        <div className="mb-8">
+          <div className="bg-gray-800 px-6 py-2 rounded-lg border border-gray-700">
+            <span className="text-gray-400 font-mono text-sm tracking-wider">
+              {timerState === "ready" ? "READY" : timerState === "running" ? "RUNNING" : "PAUSED"}
+            </span>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+
+        {/* Timer Display */}
+        <div className="mb-8">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-8">
+            <div className="flex items-center justify-center gap-4 mb-4">
+              {/* Hours */}
+              <div className="text-center">
+                <div className="text-6xl font-mono font-bold text-yellow-400 tracking-wider">{currentTime.hours}</div>
+                <div className="text-gray-400 text-sm font-mono tracking-wider mt-2">HOURS</div>
+              </div>
+
+              <div className="text-6xl font-mono font-bold text-yellow-400">:</div>
+
+              {/* Minutes */}
+              <div className="text-center">
+                <div className="text-6xl font-mono font-bold text-yellow-400 tracking-wider">{currentTime.minutes}</div>
+                <div className="text-gray-400 text-sm font-mono tracking-wider mt-2">MINUTES</div>
+              </div>
+
+              <div className="text-6xl font-mono font-bold text-yellow-400">:</div>
+
+              {/* Seconds */}
+              <div className="text-center">
+                <div className="text-6xl font-mono font-bold text-yellow-400 tracking-wider">{currentTime.seconds}</div>
+                <div className="text-gray-400 text-sm font-mono tracking-wider mt-2">SECONDS</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Today Total */}
+        <div className="mb-8">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg px-6 py-3 flex items-center gap-3">
+            <Clock className="w-5 h-5 text-gray-400" />
+            <span className="text-gray-400 font-mono">Today:</span>
+            <span className="text-yellow-400 font-mono font-bold">{formatTodayTime(todayTotal)}</span>
+          </div>
+        </div>
+
+        {/* Control Buttons */}
+        <div className="flex gap-4">
+          {timerState === "ready" && (
+            <Button
+              onClick={handleClockIn}
+              disabled={isClockInDisabled}
+              className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-gray-700 disabled:text-gray-500 text-black font-semibold px-8 py-4 text-lg border-2 border-yellow-500 disabled:border-gray-600"
+            >
+              <Play className="w-5 h-5 mr-2" />
+              CLOCK IN
+            </Button>
+          )}
+
+          {timerState === "running" && (
+            <>
+              <Button
+                onClick={handlePause}
+                className="bg-orange-600 hover:bg-orange-700 text-white font-semibold px-6 py-4 text-lg border-2 border-orange-500"
+              >
+                <Pause className="w-5 h-5 mr-2" />
+                PAUSE
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-semibold px-6 py-4 text-lg border-2 border-green-500 disabled:border-gray-600"
+              >
+                <Square className="w-5 h-5 mr-2" />
+                {isSubmitting ? "SUBMITTING..." : "SUBMIT"}
+              </Button>
+            </>
+          )}
+
+          {timerState === "paused" && (
+            <>
+              <Button
+                onClick={handleResume}
+                className="bg-yellow-600 hover:bg-yellow-700 text-black font-semibold px-6 py-4 text-lg border-2 border-yellow-500"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                RESUME
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-700 text-white font-semibold px-6 py-4 text-lg border-2 border-green-500 disabled:border-gray-600"
+              >
+                <Square className="w-5 h-5 mr-2" />
+                {isSubmitting ? "SUBMITTING..." : "SUBMIT"}
+              </Button>
+            </>
+          )}
+        </div>
+
+        {/* Selected Company Display */}
+        {selectedCompany && timerState !== "ready" && (
+          <div className="mt-6">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2">
+              <span className="text-gray-400 text-sm">Working for: </span>
+              <span className="text-yellow-400 font-semibold">{selectedCompany}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Navigation */}
+      <div className="bg-gray-800 border-t border-gray-700">
+        <div className="flex justify-around items-center py-4 px-4">
+          <Link href="/" className="flex flex-col items-center gap-1 text-yellow-400">
+            <Clock className="w-6 h-6" />
+            <span className="text-xs font-medium">Track</span>
+          </Link>
+          <Link href="/history" className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-300">
+            <History className="w-6 h-6" />
+            <span className="text-xs font-medium">History</span>
+          </Link>
+          <Link href="/reports" className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-300">
+            <FileText className="w-6 h-6" />
+            <span className="text-xs font-medium">Reports</span>
+          </Link>
+          <Link href="/expenses" className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-300">
+            <DollarSign className="w-6 h-6" />
+            <span className="text-xs font-medium">Expenses</span>
+          </Link>
+          <Link href="/stats" className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-300">
+            <BarChart3 className="w-6 h-6" />
+            <span className="text-xs font-medium">Stats</span>
+          </Link>
+          <Link href="/admin" className="flex flex-col items-center gap-1 text-gray-400 hover:text-gray-300">
+            <Settings className="w-6 h-6" />
+            <span className="text-xs font-medium">Admin</span>
+          </Link>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
