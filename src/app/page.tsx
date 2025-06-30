@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Clock, History, FileText, DollarSign, BarChart3, Settings, Play, Pause, Square } from "lucide-react"
+import { supabase } from '@/lib/auth'
+import { useRouter } from 'next/navigation'
+import { Power } from 'lucide-react' // Import an icon
+
 import Link from "next/link"
 import "@/app/globals.css" 
 
@@ -127,6 +131,14 @@ export default function TimeTrackingPage() {
       setIsSubmitting(false)
     }
   }
+      const router = useRouter()
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+
 
   const currentTime = formatTime(seconds)
   const isClockInDisabled = !selectedCompany || timerState !== "ready"
@@ -134,7 +146,15 @@ export default function TimeTrackingPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* Main Content */}
-      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8">
+      
+      <div className="flex-1 flex flex-col items-center justify-center px-4 py-8 gap-5">
+        <button
+      onClick={handleLogout}
+      className="flex items-center gap-2 text-gray-400 hover:text-yellow-400 transition-colors"
+    >
+      <Power className="w-5 h-5" />
+      <span className="font-mono text-sm">Logout</span>
+    </button>
         {/* Company Selection */}
         {timerState === "ready" && (
           <div className="mb-8">
